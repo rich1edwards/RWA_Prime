@@ -187,18 +187,89 @@
 
 ## External APIs & Data Sources
 
-| Service | Tier Decision | Monthly Cost | Status | Owner |
-|---------|--------------|--------------|--------|-------|
-| CoinAPI | ⏳ Startup ($329) vs Pro ($829) | $329-$829 | ⏳ | |
-| Amberdata | ⏳ Developer ($500) vs Pro ($1500) | $500-$1500 | ⏳ | |
-| Bitquery | ⏳ Explorer ($99) vs Pro ($299) | $99-$299 | ⏳ | |
-| RWA.io | ⏳ Basic ($299) vs Premium ($699) | $299-$699 | ⏳ | |
-| Trading Economics | Standard ($250) | $250 | ⏳ | |
-| NewsAPI.ai | Professional ($449) | $449 | ⏳ | |
+### 🔴 REQUIRED for Phase 1 MVP (US-Based Only)
 
-**Backup Data Sources**: ⏳ TBD
+| Service | Purpose | Why Required | US-Based? | Tier Decision | Monthly Cost | Status | Owner |
+|---------|---------|--------------|-----------|--------------|--------------|--------|-------|
+| **Alchemy** | Price data + Blockchain data | Core functionality: prices, wallet sync, on-chain metrics | ✅ Yes (SF) | Growth Plan | $199/month (or Free tier) | ⏳ **REQUIRED** | |
+| **Coinbase API** | Price data (backup) | Backup for price feeds | ✅ Yes (SF) | Free | $0 | ⏳ Optional | |
 
-**Mock Data for Development**: ⏳ TBD
+**Phase 1 REQUIRED API Cost**: **$0-$199/month** (vs original $2,054/month)
+
+**Recommendation**: Start with **Alchemy Free Tier** ($0/month, 300M compute units/month), upgrade to Growth ($199/month) only if needed.
+
+---
+
+### 🟡 OPTIONAL - Phase 2 Features (Deferred)
+
+These APIs are NOT required for Phase 1 MVP. Defer to Phase 2 to reduce development costs:
+
+| Service | Purpose | Phase | Why Deferred | Original Cost |
+|---------|---------|-------|--------------|---------------|
+| ~~CoinAPI~~ | Price data | Phase 2 | ❌ Not US-based (Czech Republic), Alchemy sufficient | ~~$329/month~~ |
+| ~~Amberdata~~ | Advanced blockchain data | Phase 2 | Alchemy sufficient for MVP, expensive | ~~$500/month~~ |
+| ~~Bitquery~~ | RWA-specific blockchain | Phase 2 | ❌ Not US-based (Singapore), not essential for MVP | ~~$99/month~~ |
+| ~~RWA.io~~ | Off-chain fundamentals | Phase 2 | ❌ Location unclear, not essential for MVP | ~~$299/month~~ |
+| ~~Trading Economics~~ | Macro data | Phase 2 | ❌ Not US-based (UK), not essential for basic risk scoring | ~~$250/month~~ |
+| ~~NewsAPI.ai~~ | News & sentiment | Phase 2 | ❌ Not US-based (Slovenia), sentiment not in Phase 1 | ~~$449/month~~ |
+| ~~Tradefeeds~~ | Crypto news | Phase 2 | Not essential for MVP | ~~$99/month~~ |
+
+**Phase 2 Cost Savings**: **$2,025/month deferred** → Add back only if needed
+
+---
+
+### 📋 US-Based API Alternatives Research
+
+For future reference, here are vetted US-based alternatives:
+
+**Price Data (US-Based)**:
+- ✅ **Alchemy** (San Francisco, CA) - SELECTED for Phase 1
+- ✅ **Coinbase API** (San Francisco, CA) - Free tier, good backup
+- ✅ **Kraken API** (San Francisco, CA) - Free tier available
+- ✅ **Messari** (New York, NY) - Free tier for basic data
+- ✅ **Dune Analytics** (New York, NY) - On-chain data, free tier
+
+**Blockchain Data (US-Based)**:
+- ✅ **Alchemy** (San Francisco, CA) - SELECTED for Phase 1
+- ✅ **Infura** (Austin, TX) - Alternative, similar pricing to Alchemy
+- ✅ **QuickNode** (Miami, FL) - Alternative, more expensive
+- ✅ **The Graph** (San Francisco, CA) - Decentralized, pay-per-query
+
+**News/Sentiment (US-Based)** - Phase 2 only:
+- ✅ **Benzinga** (Detroit, MI) - Financial news API, $500+/month
+- ✅ **Polygon.io** (New York, NY) - Market data + news, $99+/month
+- Use free sources initially: Twitter API, Reddit API, RSS feeds
+
+---
+
+### 🎯 Phase 1 MVP API Strategy
+
+**Recommended Setup**:
+```
+Phase 1 (MVP):
+├── Alchemy Free Tier ($0/month)
+│   ├── Price feeds for 50+ RWA tokens
+│   ├── Ethereum + Polygon blockchain data
+│   ├── Wallet balance tracking
+│   └── Transaction history
+│
+└── Coinbase API Free Tier ($0/month) [Backup]
+    └── Additional price data if Alchemy rate limits
+
+Total Phase 1 Cost: $0/month
+```
+
+**Upgrade Path** (if free tier insufficient):
+```
+Phase 1 (High Traffic):
+└── Alchemy Growth Plan ($199/month)
+    └── 3 billion compute units/month
+    └── Enhanced APIs
+
+Total Phase 1 Cost: $199/month
+```
+
+**Mock Data for Development**: ⏳ Create synthetic datasets for development/testing
 
 ---
 
