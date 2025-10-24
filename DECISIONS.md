@@ -10,6 +10,166 @@
 
 ---
 
+## 🚨 PRIORITY DECISIONS (Action Required)
+
+### 🔴 CRITICAL - Blocks Development Start
+
+**Must decide in next 48-72 hours** to avoid delaying project start:
+
+| # | Decision | Why Critical | Impact if Delayed | Estimated Cost | Owner | Status |
+|---|----------|-------------|-------------------|----------------|-------|--------|
+| **1** | **Payment Processor Selection** | Cannot build billing, subscription management, tier enforcement | 2-3 week delay for integration | 2.9% + $0.30/txn | | ⏳ |
+| **2** | **API Budget Approval** | Cannot develop data ingestion, predictions, sentiment analysis | All core features blocked | ~$2,000/month | | ⏳ |
+| **3** | **Domain Name Purchase** | Cannot configure SSL, CORS, email, production URLs | Infrastructure setup blocked | $12/year | | ⏳ |
+| **4** | **AWS Account Setup** | Cannot provision infrastructure, databases, Kubernetes | All infrastructure blocked | $812-$2,500/month | | ⏳ |
+| **5** | **Historical ML Data Source** | Cannot train quality ML models, poor predictions | ML/prediction features blocked | $500-$2,000 one-time | | ⏳ |
+| **6** | **Legal Documents (ToS/Privacy)** | Cannot launch publicly, legal exposure | Public launch blocked | $1,000-$3,000 one-time | | ⏳ |
+
+**Total Critical Path Budget**: ~$5,500-$8,500 initial + ~$2,800-$4,500/month recurring
+
+---
+
+### 🟡 HIGH PRIORITY - Needed for MVP (Week 1-2)
+
+**Must decide before Sprint 2** to maintain launch timeline:
+
+| # | Decision | Why Important | Impact if Delayed | Estimated Cost | Owner | Status |
+|---|----------|--------------|-------------------|----------------|-------|--------|
+| **7** | Email Service Provider | User registration, notifications, password reset | User onboarding broken | $20/month (SendGrid) | | ⏳ |
+| **8** | Blockchain Node Provider | Wallet sync, on-chain data | Portfolio sync broken | Free-$200/month | | ⏳ |
+| **9** | Initial Blockchain Priority | Scope MVP features | Feature scope unclear | N/A | | ⏳ |
+| **10** | Tier Limit Enforcement Strategy | User experience for limits | Confusing UX, support burden | N/A | | ⏳ |
+| **11** | Free Trial Strategy | User acquisition | No trial = lower conversions | N/A | | ⏳ |
+| **12** | Downgrade Flow Logic | User retention | Frustrating downgrades | N/A | | ⏳ |
+
+---
+
+### 🟢 MEDIUM PRIORITY - Decide Before Launch (Week 3-4)
+
+**Should decide by end of Sprint 3**:
+
+| # | Decision | Why Needed | Impact if Delayed | Estimated Cost | Owner | Status |
+|---|----------|-----------|-------------------|----------------|-------|--------|
+| **13** | Monitoring Stack (APM/Logs) | Production observability | Hard to debug issues | $200/month | | ⏳ |
+| **14** | Status Page Provider | User communication during incidents | Poor incident comms | $29/month | | ⏳ |
+| **15** | Design System Choice | Frontend consistency | Inconsistent UI | N/A | | ⏳ |
+| **16** | Mobile App Timeline | Development planning | Resource allocation | N/A | | ⏳ |
+| **17** | Team Structure | Hiring plan | Understaffed team | $500K-$1M/year | | ⏳ |
+| **18** | Tax Handling Strategy | Revenue compliance | Tax filing issues | $0.50/txn (Stripe Tax) | | ⏳ |
+
+---
+
+### 🔵 LOW PRIORITY - Can Decide Post-MVP
+
+**Can defer to Phase 2 without blocking launch**:
+
+| # | Decision | When Needed | Owner | Status |
+|---|----------|------------|-------|--------|
+| **19** | Analytics Platform | Phase 1 end | | ⏳ |
+| **20** | Customer Support System | After first 100 users | | ⏳ |
+| **21** | SMS Provider (2FA) | Enterprise tier launch | | ⏳ |
+| **22** | Model Versioning System | After 3-5 model iterations | | ⏳ |
+| **23** | Social Login (OAuth) | Phase 2 | | ⏳ |
+| **24** | Multi-Region Strategy | After 1000+ users | | ⏳ |
+
+---
+
+## 📅 Recommended Decision Timeline
+
+### Week 1: Critical Path (Nov 1-7)
+- [ ] **Day 1**: Purchase domain name
+- [ ] **Day 1**: Set up AWS account
+- [ ] **Day 2**: Select payment processor (recommend: Stripe)
+- [ ] **Day 2**: Approve API budget
+- [ ] **Day 3**: Engage legal counsel for ToS/Privacy Policy
+- [ ] **Day 4**: Procure API keys (lowest tiers to start)
+- [ ] **Day 5**: Purchase historical ML training data
+
+### Week 2: High Priority (Nov 8-14)
+- [ ] **Mon**: Configure email service (SendGrid)
+- [ ] **Mon**: Select blockchain node provider (Alchemy)
+- [ ] **Tue**: Define blockchain support priority (start with 2-3)
+- [ ] **Wed**: Document tier enforcement strategy
+- [ ] **Thu**: Define free trial parameters
+- [ ] **Fri**: Document downgrade flow logic
+
+### Week 3: Medium Priority (Nov 15-21)
+- [ ] **Mon**: Select monitoring stack
+- [ ] **Mon**: Set up status page
+- [ ] **Tue**: Choose design system
+- [ ] **Wed**: Define mobile app timeline
+- [ ] **Thu**: Finalize team structure and hiring plan
+- [ ] **Fri**: Choose tax handling approach
+
+### Week 4+: Low Priority (Nov 22+)
+- [ ] Analytics platform (can use GA4 free initially)
+- [ ] Customer support (can use email initially)
+- [ ] Remaining items as needed
+
+---
+
+## 💰 Budget Summary
+
+### One-Time Costs
+| Item | Cost | Priority | Status |
+|------|------|----------|--------|
+| Domain name | $12 | 🔴 Critical | ⏳ |
+| Legal documents | $1,000-$3,000 | 🔴 Critical | ⏳ |
+| Historical ML data | $500-$2,000 | 🔴 Critical | ⏳ |
+| **Total One-Time** | **$1,512-$5,012** | | |
+
+### Monthly Recurring Costs
+| Item | Cost | Priority | Status |
+|------|------|----------|--------|
+| AWS Infrastructure (dev) | $812 | 🔴 Critical | ⏳ |
+| AWS Infrastructure (prod) | $2,500 | 🔴 Critical | ⏳ |
+| External APIs | $1,500-$2,000 | 🔴 Critical | ⏳ |
+| Payment processing | 2.9% + $0.30/txn | 🔴 Critical | ⏳ |
+| Email (SendGrid) | $20 | 🟡 High | ⏳ |
+| Blockchain nodes | $0-$200 | 🟡 High | ⏳ |
+| Monitoring (New Relic/Datadog) | $200 | 🟢 Medium | ⏳ |
+| Status page | $29 | 🟢 Medium | ⏳ |
+| Error tracking (Sentry) | $26 | 🟢 Medium | ⏳ |
+| **Total Monthly (dev)** | **~$2,587-$3,087** | | |
+| **Total Monthly (prod)** | **~$4,275-$4,975** | | |
+
+### Team Costs (Annual)
+| Role | Quantity | Annual Cost | Priority |
+|------|----------|-------------|----------|
+| Backend Developer | 2-3 | $300K-$450K | 🔴 Critical |
+| Frontend Developer | 1-2 | $150K-$300K | 🔴 Critical |
+| ML Engineer | 1-2 | $150K-$300K | 🔴 Critical |
+| DevOps/SRE | 1 | $150K-$200K | 🟡 High |
+| QA Engineer | 0.5-1 | $75K-$150K | 🟢 Medium |
+| **Total Team Costs** | **$825K-$1.4M/year** | | |
+
+---
+
+## 🎯 Quick Action Checklist
+
+### Before First Code Commit
+- [ ] AWS account created and configured
+- [ ] Domain purchased and DNS configured
+- [ ] Payment processor account created (Stripe)
+- [ ] API keys obtained (at least free tiers)
+- [ ] Legal counsel engaged
+
+### Before Sprint 1 Ends
+- [ ] All API keys upgraded to paid tiers
+- [ ] Historical data purchased and loaded
+- [ ] Email service configured (SendGrid)
+- [ ] Blockchain node provider selected
+- [ ] Tier enforcement logic documented
+
+### Before MVP Launch
+- [ ] Legal documents finalized (ToS, Privacy Policy)
+- [ ] Monitoring and alerting configured
+- [ ] Status page live
+- [ ] Tax handling implemented
+- [ ] Team fully hired and onboarded
+
+---
+
 ## Infrastructure & Cloud
 
 | Decision | Status | Answer | Notes | Owner |
