@@ -1,0 +1,38 @@
+# Spell check configuration for documentation
+matrix:
+  - name: Markdown
+    aspell:
+      lang: en
+      d: en_US
+    dictionary:
+      encoding: utf-8
+      wordlists:
+        - .github/custom-dictionary.txt
+    pipeline:
+      - pyspelling.filters.markdown:
+          markdown_extensions:
+            - pymdownx.superfences:
+            - pymdownx.highlight:
+                css_class: highlight
+            - pymdownx.inlinehilite:
+            - pymdownx.magiclink:
+            - pymdownx.betterem:
+            - pymdownx.tilde:
+            - pymdownx.emoji:
+            - pymdownx.tasklist:
+                custom_checkbox: true
+            - pymdownx.arithmatex:
+            - pymdownx.mark:
+            - pymdownx.striphtml:
+      - pyspelling.filters.html:
+          comments: false
+          attributes:
+            - title
+            - alt
+          ignores:
+            - code
+            - pre
+    sources:
+      - '**/*.md'
+    expect_match: true
+    pty: true

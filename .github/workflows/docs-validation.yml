@@ -1,0 +1,489 @@
+name: Documentation Validation
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**.md'
+      - '**.py'
+      - '**.ts'
+      - '**.tsx'
+      - 'package.json'
+      - 'requirements.txt'
+      - 'backend/**'
+      - 'frontend/**'
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  check-doc-updates:
+    name: Check if Docs Need Updates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for comparison
+
+      - name: Check for code changes without doc updates
+        run: |
+          echo "::group::Checking for code/doc sync"
+
+          # Get changed files in this PR/commit
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_REF="${{ github.base_ref }}"
+            HEAD_REF="${{ github.head_ref }}"
+            CHANGED_FILES=$(git diff --name-only origin/$BASE_REF...HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1)
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Count significant code changes
+          CODE_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.(py|ts|tsx|js)$' | wc -l)
+          DOC_CHANGES=$(echo "$CHANGED_FILES" | grep '\.md$' | wc -l)
+
+          echo "Code files changed: $CODE_CHANGES"
+          echo "Documentation files changed: $DOC_CHANGES"
+
+          # Warning if >10 code files changed but no docs
+          if [ $CODE_CHANGES -gt 10 ] && [ $DOC_CHANGES -eq 0 ]; then
+            echo "::warning::⚠️  Significant code changes ($CODE_CHANGES files) without documentation updates"
+            echo "::warning::Consider updating CODEBASE_MAP.md, API_REFERENCE.md, or other relevant docs"
+          fi
+
+          echo "::endgroup::"
+
+      - name: Check package.json vs DEPENDENCIES.md
+        if: contains(github.event.pull_request.changed_files, 'package.json') || contains(github.event.pull_request.changed_files, 'frontend/package.json')
+        run: |
+          echo "::group::Checking package.json sync"
+          if echo "${{ github.event.pull_request.changed_files }}" | grep -q "DEPENDENCIES.md"; then
+            echo "✅ package.json changed and DEPENDENCIES.md was updated"
+          else
+            echo "::warning::⚠️  package.json changed but DEPENDENCIES.md not updated"
+            echo "::warning::Please update DEPENDENCIES.md with new/changed dependencies"
+          fi
+          echo "::endgroup::"
+
+      - name: Check requirements.txt vs DEPENDENCIES.md
+        if: contains(github.event.pull_request.changed_files, 'requirements.txt') || contains(github.event.pull_request.changed_files, 'backend/requirements.txt')
+        run: |
+          echo "::group::Checking requirements.txt sync"
+          if echo "${{ github.event.pull_request.changed_files }}" | grep -q "DEPENDENCIES.md"; then
+            echo "✅ requirements.txt changed and DEPENDENCIES.md was updated"
+          else
+            echo "::warning::⚠️  requirements.txt changed but DEPENDENCIES.md not updated"
+            echo "::warning::Please update DEPENDENCIES.md with new/changed dependencies"
+          fi
+          echo "::endgroup::"
+
+      - name: Check for new API routes
+        run: |
+          echo "::group::Checking for new API routes"
+
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_REF="${{ github.base_ref }}"
+            NEW_ROUTES=$(git diff origin/$BASE_REF...HEAD -- '**/routes/*.py' '**/api/**/*.py' | grep -E '^\+.*@router\.(get|post|put|delete|patch)' || true)
+          else
+            NEW_ROUTES=$(git diff HEAD~1 -- '**/routes/*.py' '**/api/**/*.py' | grep -E '^\+.*@router\.(get|post|put|delete|patch)' || true)
+          fi
+
+          if [ ! -z "$NEW_ROUTES" ]; then
+            echo "🔍 Detected new API routes:"
+            echo "$NEW_ROUTES"
+
+            # Check if API_REFERENCE.md was updated
+            if echo "${{ github.event.pull_request.changed_files }}" | grep -q "API_REFERENCE.md"; then
+              echo "✅ API_REFERENCE.md was updated"
+            else
+              echo "::warning::⚠️  New API routes detected but API_REFERENCE.md not updated"
+              echo "::warning::Please document new endpoints in API_REFERENCE.md"
+            fi
+          else
+            echo "No new API routes detected"
+          fi
+
+          echo "::endgroup::"
+
+      - name: Check for new database models
+        run: |
+          echo "::group::Checking for database model changes"
+
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_REF="${{ github.base_ref }}"
+            MODEL_CHANGES=$(git diff origin/$BASE_REF...HEAD -- '**/models.py' '**/database/**' | grep -E '^\+.*class.*\(Base\)' || true)
+          else
+            MODEL_CHANGES=$(git diff HEAD~1 -- '**/models.py' '**/database/**' | grep -E '^\+.*class.*\(Base\)' || true)
+          fi
+
+          if [ ! -z "$MODEL_CHANGES" ]; then
+            echo "🔍 Detected database model changes"
+
+            if echo "${{ github.event.pull_request.changed_files }}" | grep -q "ARCHITECTURE.md"; then
+              echo "✅ ARCHITECTURE.md was updated"
+            else
+              echo "::warning::⚠️  Database models changed but ARCHITECTURE.md not updated"
+              echo "::warning::Please update the Database Schema section in ARCHITECTURE.md"
+            fi
+          else
+            echo "No database model changes detected"
+          fi
+
+          echo "::endgroup::"
+
+  check-links:
+    name: Check Documentation Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check internal markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          config-file: '.github/markdown-link-check-config.json'
+          base-branch: 'main'
+
+      - name: Check for broken cross-references
+        run: |
+          echo "::group::Checking cross-references between docs"
+
+          # Find all markdown files
+          MD_FILES=$(find . -name "*.md" -not -path "./node_modules/*" -not -path "./.git/*")
+
+          BROKEN_REFS=0
+
+          for file in $MD_FILES; do
+            # Extract all markdown links [text](./path.md)
+            LINKS=$(grep -oP '\[.*?\]\(\./.*?\.md.*?\)' "$file" || true)
+
+            if [ ! -z "$LINKS" ]; then
+              while IFS= read -r link; do
+                # Extract the path
+                PATH_PART=$(echo "$link" | grep -oP '\(\./\K[^)]+')
+
+                # Remove anchor if exists
+                FILE_PATH=$(echo "$PATH_PART" | cut -d'#' -f1)
+
+                # Check if file exists (relative to current doc)
+                DIR=$(dirname "$file")
+                FULL_PATH="$DIR/$FILE_PATH"
+
+                if [ ! -f "$FULL_PATH" ]; then
+                  echo "::error file=$file::Broken link: $link -> $FULL_PATH does not exist"
+                  BROKEN_REFS=$((BROKEN_REFS + 1))
+                fi
+              done <<< "$LINKS"
+            fi
+          done
+
+          if [ $BROKEN_REFS -gt 0 ]; then
+            echo "::error::Found $BROKEN_REFS broken internal references"
+            exit 1
+          else
+            echo "✅ All internal references are valid"
+          fi
+
+          echo "::endgroup::"
+
+  validate-code-examples:
+    name: Validate Code Examples in Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Extract and validate Python code blocks
+        run: |
+          echo "::group::Validating Python code examples"
+
+          # Extract Python code blocks from markdown files
+          MD_FILES=$(find . -name "*.md" -not -path "./node_modules/*")
+
+          SYNTAX_ERRORS=0
+
+          for file in $MD_FILES; do
+            echo "Checking $file..."
+
+            # Extract Python code blocks
+            awk '/```python/,/```/' "$file" | grep -v '```' > temp_code.py || true
+
+            if [ -s temp_code.py ]; then
+              # Check syntax
+              if ! python -m py_compile temp_code.py 2>/dev/null; then
+                echo "::warning file=$file::Python code block has syntax errors (may be intentional example)"
+              fi
+            fi
+
+            rm -f temp_code.py __pycache__/* 2>/dev/null || true
+          done
+
+          echo "✅ Python syntax validation complete"
+          echo "::endgroup::"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Extract and validate TypeScript code blocks
+        run: |
+          echo "::group::Validating TypeScript code examples"
+
+          # Install TypeScript
+          npm install -g typescript
+
+          MD_FILES=$(find . -name "*.md" -not -path "./node_modules/*")
+
+          for file in $MD_FILES; do
+            echo "Checking $file..."
+
+            # Extract TypeScript code blocks
+            awk '/```typescript/,/```/' "$file" | grep -v '```' > temp_code.ts || true
+
+            if [ -s temp_code.ts ]; then
+              # Basic TypeScript syntax check
+              if ! tsc --noEmit --skipLibCheck temp_code.ts 2>/dev/null; then
+                echo "::warning file=$file::TypeScript code block may have syntax errors (may be intentional example)"
+              fi
+            fi
+
+            rm -f temp_code.ts 2>/dev/null || true
+          done
+
+          echo "✅ TypeScript syntax validation complete"
+          echo "::endgroup::"
+
+  check-api-docs-sync:
+    name: Check API Documentation Sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          if [ -f backend/requirements.txt ]; then
+            pip install -r backend/requirements.txt
+          fi
+
+      - name: Extract API endpoints from code
+        run: |
+          echo "::group::Extracting API endpoints from code"
+
+          # This is a simplified check - in real implementation, you'd parse the FastAPI app
+          if [ -d backend/api/routes ]; then
+            echo "Found API routes directory"
+
+            # Extract endpoint definitions
+            ENDPOINTS=$(grep -r "@router\." backend/api/routes/ | grep -E '(get|post|put|delete|patch)' | wc -l)
+            echo "Found $ENDPOINTS endpoint definitions in code"
+
+            # Count documented endpoints in API_REFERENCE.md
+            if [ -f API_REFERENCE.md ]; then
+              DOCUMENTED=$(grep -E "^### (GET|POST|PUT|DELETE|PATCH)" API_REFERENCE.md | wc -l)
+              echo "Found $DOCUMENTED documented endpoints in API_REFERENCE.md"
+
+              if [ $ENDPOINTS -gt $DOCUMENTED ]; then
+                echo "::warning::⚠️  Possible undocumented API endpoints"
+                echo "::warning::Code has $ENDPOINTS endpoints, docs have $DOCUMENTED"
+                echo "::warning::Please ensure all endpoints are documented in API_REFERENCE.md"
+              else
+                echo "✅ API documentation appears complete"
+              fi
+            else
+              echo "::warning::API_REFERENCE.md not found"
+            fi
+          fi
+
+          echo "::endgroup::"
+
+  check-mermaid-diagrams:
+    name: Validate Mermaid Diagrams
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Mermaid CLI
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: Validate Mermaid syntax
+        run: |
+          echo "::group::Validating Mermaid diagrams"
+
+          MD_FILES=$(find . -name "*.md" -not -path "./node_modules/*")
+          DIAGRAM_ERRORS=0
+
+          for file in $MD_FILES; do
+            # Check if file contains Mermaid diagrams
+            if grep -q '```mermaid' "$file"; then
+              echo "Checking Mermaid diagrams in $file..."
+
+              # Extract each Mermaid diagram
+              awk '/```mermaid/,/```/' "$file" > temp_diagrams.md
+
+              # Try to validate (this is basic - full validation would render)
+              if grep -q 'graph\|sequenceDiagram\|erDiagram\|flowchart\|stateDiagram' temp_diagrams.md; then
+                echo "✅ Found valid Mermaid diagram types in $file"
+              else
+                echo "::warning file=$file::Mermaid diagram may have invalid syntax"
+                DIAGRAM_ERRORS=$((DIAGRAM_ERRORS + 1))
+              fi
+
+              rm -f temp_diagrams.md
+            fi
+          done
+
+          if [ $DIAGRAM_ERRORS -gt 0 ]; then
+            echo "::warning::Found $DIAGRAM_ERRORS files with potentially invalid Mermaid diagrams"
+          else
+            echo "✅ All Mermaid diagrams validated successfully"
+          fi
+
+          echo "::endgroup::"
+
+  check-documentation-completeness:
+    name: Check Documentation Completeness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check required documentation files
+        run: |
+          echo "::group::Checking required documentation files"
+
+          REQUIRED_DOCS=(
+            "README.md"
+            "00_START_HERE.md"
+            "PROJECT_CONTEXT.md"
+            "ARCHITECTURE.md"
+            "DEVELOPMENT_GUIDE.md"
+            "CODEBASE_MAP.md"
+            "TASKS_AND_TODO.md"
+            "API_REFERENCE.md"
+            "DEPENDENCIES.md"
+            "TESTING_GUIDE.md"
+            "CLAUDE_INSTRUCTIONS.md"
+            "DIAGRAMS.md"
+          )
+
+          MISSING_DOCS=0
+
+          for doc in "${REQUIRED_DOCS[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "::error::Missing required documentation: $doc"
+              MISSING_DOCS=$((MISSING_DOCS + 1))
+            else
+              echo "✅ Found $doc"
+            fi
+          done
+
+          if [ $MISSING_DOCS -gt 0 ]; then
+            echo "::error::Missing $MISSING_DOCS required documentation files"
+            exit 1
+          else
+            echo "✅ All required documentation files present"
+          fi
+
+          echo "::endgroup::"
+
+      - name: Check documentation freshness
+        run: |
+          echo "::group::Checking documentation freshness"
+
+          # Check if docs were updated in last 90 days
+          STALE_THRESHOLD=90
+
+          MD_FILES=$(find . -maxdepth 1 -name "*.md" -not -name "README.md")
+
+          STALE_DOCS=0
+
+          for file in $MD_FILES; do
+            LAST_MODIFIED=$(git log -1 --format="%at" -- "$file" 2>/dev/null || echo "0")
+            CURRENT_TIME=$(date +%s)
+            DAYS_AGO=$(( ($CURRENT_TIME - $LAST_MODIFIED) / 86400 ))
+
+            if [ $DAYS_AGO -gt $STALE_THRESHOLD ]; then
+              echo "::warning file=$file::Documentation is $DAYS_AGO days old (stale threshold: $STALE_THRESHOLD days)"
+              STALE_DOCS=$((STALE_DOCS + 1))
+            fi
+          done
+
+          if [ $STALE_DOCS -gt 0 ]; then
+            echo "::warning::Found $STALE_DOCS potentially stale documentation files"
+            echo "::warning::Consider reviewing and updating old documentation"
+          else
+            echo "✅ All documentation is reasonably fresh"
+          fi
+
+          echo "::endgroup::"
+
+  spell-check:
+    name: Spell Check Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run spell checker
+        uses: rojopolis/spellcheck-github-actions@0.35.0
+        with:
+          config_path: .github/spellcheck-config.yml
+          task_name: Markdown
+
+  documentation-report:
+    name: Generate Documentation Report
+    runs-on: ubuntu-latest
+    needs: [check-doc-updates, check-links, validate-code-examples, check-api-docs-sync, check-mermaid-diagrams, check-documentation-completeness]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 📚 Documentation Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Doc Updates Check | ${{ needs.check-doc-updates.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Link Validation | ${{ needs.check-links.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Examples | ${{ needs.validate-code-examples.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Docs Sync | ${{ needs.check-api-docs-sync.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mermaid Diagrams | ${{ needs.check-mermaid-diagrams.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Completeness Check | ${{ needs.check-documentation-completeness.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.check-doc-updates.result }}" == "success" ] && \
+             [ "${{ needs.check-links.result }}" == "success" ] && \
+             [ "${{ needs.validate-code-examples.result }}" == "success" ] && \
+             [ "${{ needs.check-api-docs-sync.result }}" == "success" ] && \
+             [ "${{ needs.check-mermaid-diagrams.result }}" == "success" ] && \
+             [ "${{ needs.check-documentation-completeness.result }}" == "success" ]; then
+            echo "✅ **All documentation checks passed!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Some documentation checks failed. Please review the warnings above.**" >> $GITHUB_STEP_SUMMARY
+          fi

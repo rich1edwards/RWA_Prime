@@ -1,0 +1,186 @@
+# RWA Prime - Docker Compose for Local Development
+# This file sets up the complete local development environment
+#
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose down               # Stop all services
+#   docker-compose logs -f <service>  # View logs
+#   docker-compose ps                 # List running services
+
+version: '3.8'
+
+services:
+  # ============================================
+  # PostgreSQL + TimescaleDB
+  # ============================================
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: rwa-prime-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-rwa_prime}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rwa-prime-network
+
+  # ============================================
+  # Redis (Caching & Session Store)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: rwa-prime-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rwa-prime-network
+
+  # ============================================
+  # Apache Kafka (Message Queue)
+  # ============================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: rwa-prime-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - rwa-prime-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: rwa-prime-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - rwa-prime-network
+
+  # ============================================
+  # LocalStack (AWS Services Emulation)
+  # ============================================
+  localstack:
+    image: localstack/localstack:latest
+    container_name: rwa-prime-localstack
+    environment:
+      SERVICES: s3,secretsmanager
+      DEBUG: 1
+      DATA_DIR: /tmp/localstack/data
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"  # LocalStack Gateway
+      - "4571:4571"  # S3
+    volumes:
+      - localstack_data:/tmp/localstack
+      - ./infrastructure/localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh
+    networks:
+      - rwa-prime-network
+
+  # ============================================
+  # Adminer (Database GUI - Optional)
+  # ============================================
+  adminer:
+    image: adminer:latest
+    container_name: rwa-prime-adminer
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "8080:8080"
+    networks:
+      - rwa-prime-network
+
+  # ============================================
+  # Redis Commander (Redis GUI - Optional)
+  # ============================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: rwa-prime-redis-commander
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - rwa-prime-network
+
+  # ============================================
+  # Kafka UI (Kafka Management - Optional)
+  # ============================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: rwa-prime-kafka-ui
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    ports:
+      - "8082:8080"
+    networks:
+      - rwa-prime-network
+
+# ============================================
+# Volumes (Persistent Data)
+# ============================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
+  localstack_data:
+    driver: local
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  rwa-prime-network:
+    driver: bridge
